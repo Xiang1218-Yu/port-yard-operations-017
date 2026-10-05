@@ -3,18 +3,19 @@ export type EquipmentKind = 'quay-crane' | 'yard-crane' | 'terminal-truck' | 're
 export type TaskStatus = 'queued' | 'assigned' | 'executing' | 'blocked' | 'done';
 export type AppointmentStatus = 'booked' | 'checked-in' | 'completed' | 'cancelled' | 'exception';
 
-export interface Voyage { id: string; vessel: string; imo: string; service: string; eta: string; etd: string; status: 'approaching' | 'berthed' | 'loading' | 'departed'; berth: string; movesPlanned: number; movesDone: number; lateRisk: 'low' | 'medium' | 'high'; }
+export interface Voyage { id: string; vessel: string; imo: string; service: string; eta: string; etd: string; status: 'approaching' | 'berthed' | 'loading' | 'departed'; berth: string; movesPlanned: number; movesDone: number; lateRisk: 'low' | 'medium' | 'high'; reportedEta?: string; windowHistory?: { at: string; sessionId: string; from: { eta: string; etd: string; berth: string }; to: { eta: string; etd: string; berth: string }; reason: string }[]; }
 export interface Container { id: string; voyageId: string; size: '20' | '40' | '45'; isoType: string; direction: 'import' | 'export' | 'transshipment'; status: ContainerStatus; weightT: number; reefer: boolean; temperature?: number; hazmatClass?: string; customs: 'released' | 'inspection' | 'hold'; priority: 'normal' | 'hot' | 'reefer' | 'hazmat'; yardSlot: string; appointmentId?: string; lastEvent: string; }
 export interface YardBlock { id: string; zone: string; rows: number; tiers: number; capacity: number; occupied: number; reeferPlugs: number; usedPlugs: number; hazmatAllowed: boolean; equipment: EquipmentKind[]; heat: number; }
 export interface GateAppointment { id: string; containerId: string; truckNo: string; driver: string; type: 'pickup' | 'dropoff'; windowStart: string; windowEnd: string; lane: 'north' | 'south' | 'rail'; status: AppointmentStatus; sealVerified: boolean; weightVerified: boolean; exception?: string; }
 export interface Equipment { id: string; name: string; kind: EquipmentKind; status: 'available' | 'working' | 'maintenance' | 'offline'; location: string; battery: number; queue: number; movesPerHour: number; }
-export interface YardTask { id: string; kind: 'receive' | 'deliver' | 'rehandle' | 'load' | 'discharge' | 'inspect'; containerId: string; from: string; to: string; equipmentId?: string; priority: number; status: TaskStatus; scheduledAt: string; blockingReasons: string[]; estimatedMinutes: number; }
+export interface YardTask { id: string; kind: 'receive' | 'deliver' | 'rehandle' | 'load' | 'discharge' | 'inspect'; containerId: string; from: string; to: string; equipmentId?: string; priority: number; status: TaskStatus; scheduledAt: string; blockingReasons: string[]; estimatedMinutes: number; rescheduleNote?: string; }
 export interface AuditEvent { id: string; actor: string; action: string; entity: string; entityId: string; at: string; details: string; }
 
 const start = Date.now(); const iso = (minutes: number) => new Date(start + minutes * 60000).toISOString();
 export const voyages: Voyage[] = [
   { id: 'VOY-AX7', vessel: 'MSC Aurora', imo: 'IMO9382014', service: 'AE-3', eta: iso(-90), etd: iso(350), status: 'berthed', berth: 'B07', movesPlanned: 1240, movesDone: 886, lateRisk: 'medium' },
   { id: 'VOY-QF2', vessel: 'Ever Quartz', imo: 'IMO9721103', service: 'TP9', eta: iso(190), etd: iso(890), status: 'approaching', berth: 'B04', movesPlanned: 760, movesDone: 0, lateRisk: 'high' },
+  { id: 'VOY-KM3', vessel: 'Hapag Kalypso', imo: 'IMO9887201', service: 'MD2', eta: iso(920), etd: iso(1430), status: 'approaching', berth: 'B04', movesPlanned: 640, movesDone: 0, lateRisk: 'low' },
   { id: 'VOY-RD8', vessel: 'ONE Redwood', imo: 'IMO9812340', service: 'PNW', eta: iso(-700), etd: iso(-330), status: 'departed', berth: 'B02', movesPlanned: 520, movesDone: 520, lateRisk: 'low' }
 ];
 export const blocks: YardBlock[] = [
@@ -29,6 +30,9 @@ export const containers: Container[] = [
   { id: 'TGHU-9831204', voyageId: 'VOY-AX7', size: '20', isoType: '22K2', direction: 'transshipment', status: 'hold', weightT: 19.7, reefer: false, hazmatClass: '3', customs: 'inspection', priority: 'hazmat', yardSlot: 'D05-R02-T1', lastEvent: '海关查验挂起' },
   { id: 'OOLU-7734201', voyageId: 'VOY-AX7', size: '40', isoType: '45G1', direction: 'export', status: 'at-gate', weightT: 24.1, reefer: false, customs: 'released', priority: 'normal', yardSlot: 'C03-R06-T1', appointmentId: 'APT-9001', lastEvent: '南闸口已称重' },
   { id: 'CMAU-6001722', voyageId: 'VOY-QF2', size: '40', isoType: '45G1', direction: 'import', status: 'in-transit', weightT: 23.5, reefer: false, customs: 'released', priority: 'hot', yardSlot: 'B07-R10-T1', lastEvent: '船期 ETA +35min' },
+  { id: 'SUDU-3344556', voyageId: 'VOY-QF2', size: '20', isoType: '22G1', direction: 'import', status: 'in-transit', weightT: 14.6, reefer: false, customs: 'released', priority: 'normal', yardSlot: 'B07-R12-T2', lastEvent: '在途，等待靠泊计划' },
+  { id: 'HLXU-5520018', voyageId: 'VOY-KM3', size: '40', isoType: '45G1', direction: 'export', status: 'in-yard', weightT: 21.0, reefer: false, customs: 'released', priority: 'normal', yardSlot: 'C03-R09-T2', lastEvent: '集港待装船' },
+  { id: 'MSCU-2055110', voyageId: 'VOY-AX7', size: '40', isoType: '45G1', direction: 'import', status: 'on-quay', weightT: 25.0, reefer: false, customs: 'released', priority: 'hot', yardSlot: 'B07 / 船边', lastEvent: '岸桥正在卸船' },
   { id: 'FCIU-9920310', voyageId: 'VOY-QF2', size: '20', isoType: '22G1', direction: 'export', status: 'in-yard', weightT: 12.2, reefer: false, customs: 'released', priority: 'normal', yardSlot: 'C03-R04-T2', lastEvent: '待装船' },
   { id: 'TEMU-1774029', voyageId: 'VOY-AX7', size: '40', isoType: '45R1', direction: 'import', status: 'in-yard', weightT: 26.3, reefer: true, temperature: 4, customs: 'inspection', priority: 'reefer', yardSlot: 'D05-R05-T1', lastEvent: '待海关查验' }
 ];
@@ -36,20 +40,26 @@ export const appointments: GateAppointment[] = [
   { id: 'APT-9001', containerId: 'OOLU-7734201', truckNo: '沪A·7K229', driver: '陈海', type: 'dropoff', windowStart: iso(-14), windowEnd: iso(16), lane: 'south', status: 'checked-in', sealVerified: true, weightVerified: true },
   { id: 'APT-9002', containerId: 'MSCU-4829017', truckNo: '苏E·66218', driver: '王建国', type: 'pickup', windowStart: iso(34), windowEnd: iso(64), lane: 'north', status: 'booked', sealVerified: false, weightVerified: false },
   { id: 'APT-9003', containerId: 'EISU-1288420', truckNo: '沪B·02891', driver: '赵晨', type: 'pickup', windowStart: iso(38), windowEnd: iso(68), lane: 'north', status: 'booked', sealVerified: false, weightVerified: false },
-  { id: 'APT-9004', containerId: 'FCIU-9920310', truckNo: '沪A·7K229', driver: '陈海', type: 'pickup', windowStart: iso(4), windowEnd: iso(22), lane: 'south', status: 'booked', sealVerified: false, weightVerified: false, exception: '同一车辆相邻窗口过短' }
+  { id: 'APT-9004', containerId: 'FCIU-9920310', truckNo: '沪A·7K229', driver: '陈海', type: 'pickup', windowStart: iso(4), windowEnd: iso(22), lane: 'south', status: 'booked', sealVerified: false, weightVerified: false, exception: '同一车辆相邻窗口过短' },
+  { id: 'APT-9005', containerId: 'SUDU-3344556', truckNo: '浙B·11K88', driver: '林涛', type: 'pickup', windowStart: iso(820), windowEnd: iso(860), lane: 'north', status: 'booked', sealVerified: false, weightVerified: false },
+  { id: 'APT-9006', containerId: 'HLXU-5520018', truckNo: '苏F·80P12', driver: '赵芳', type: 'dropoff', windowStart: iso(880), windowEnd: iso(915), lane: 'south', status: 'booked', sealVerified: false, weightVerified: false }
 ];
 export const equipment: Equipment[] = [
   { id: 'QC-07', name: '岸桥 QC-07', kind: 'quay-crane', status: 'working', location: 'B07 / MSC Aurora', battery: 96, queue: 4, movesPerHour: 31 },
+  { id: 'QC-04', name: '岸桥 QC-04', kind: 'quay-crane', status: 'working', location: 'B04 / 预派 VOY-KM3', battery: 81, queue: 1, movesPerHour: 29 },
+  { id: 'QC-10', name: '岸桥 QC-10', kind: 'quay-crane', status: 'available', location: 'B10', battery: 92, queue: 0, movesPerHour: 30 },
   { id: 'YC-12', name: '场桥 YC-12', kind: 'yard-crane', status: 'working', location: 'B07-R03', battery: 72, queue: 9, movesPerHour: 24 },
   { id: 'YC-05', name: '场桥 YC-05', kind: 'yard-crane', status: 'available', location: 'C03-R06', battery: 88, queue: 3, movesPerHour: 27 },
   { id: 'TT-31', name: '集卡 TT-31', kind: 'terminal-truck', status: 'working', location: '南闸口', battery: 61, queue: 2, movesPerHour: 8 },
   { id: 'RS-02', name: '正面吊 RS-02', kind: 'reach-stacker', status: 'maintenance', location: 'D05', battery: 34, queue: 0, movesPerHour: 14 }
 ];
 export const tasks: YardTask[] = [
+  { id: 'TASK-100', kind: 'discharge', containerId: 'MSCU-2055110', from: 'VOY-AX7 / 舱面', to: 'B07-R08-T1', equipmentId: 'QC-07', priority: 98, status: 'executing', scheduledAt: iso(-18), blockingReasons: [], estimatedMinutes: 16 },
   { id: 'TASK-101', kind: 'deliver', containerId: 'MSCU-4829017', from: 'A01-R07-T3', to: '南闸口', equipmentId: 'YC-12', priority: 92, status: 'assigned', scheduledAt: iso(12), blockingReasons: [], estimatedMinutes: 18 },
   { id: 'TASK-102', kind: 'rehandle', containerId: 'EISU-1288420', from: 'B07-R03-T2', to: 'D05-R05-T1', equipmentId: 'YC-12', priority: 88, status: 'queued', scheduledAt: iso(24), blockingReasons: ['查验区插件余量接近阈值'], estimatedMinutes: 26 },
   { id: 'TASK-103', kind: 'inspect', containerId: 'TGHU-9831204', from: 'D05-R02-T1', to: 'D05-R02-T1', priority: 125, status: 'blocked', scheduledAt: iso(4), blockingReasons: ['RS-02 维护中', '待海关查验窗口'], estimatedMinutes: 32 },
-  { id: 'TASK-104', kind: 'load', containerId: 'FCIU-9920310', from: 'C03-R04-T2', to: 'B07 / VOY-QF2', equipmentId: 'YC-05', priority: 75, status: 'queued', scheduledAt: iso(76), blockingReasons: [], estimatedMinutes: 21 }
+  { id: 'TASK-104', kind: 'load', containerId: 'FCIU-9920310', from: 'C03-R04-T2', to: 'B04 / VOY-QF2', equipmentId: 'YC-05', priority: 75, status: 'queued', scheduledAt: iso(760), blockingReasons: [], estimatedMinutes: 21 },
+  { id: 'TASK-110', kind: 'load', containerId: 'HLXU-5520018', from: 'C03-R09-T2', to: 'B04 / VOY-KM3', equipmentId: 'QC-04', priority: 70, status: 'queued', scheduledAt: iso(960), blockingReasons: [], estimatedMinutes: 22 }
 ];
 export const auditEvents: AuditEvent[] = [{ id: 'AUD-500', actor: '中控调度员', action: 'REPLAN', entity: 'voyage', entityId: 'VOY-AX7', at: new Date(start - 20 * 60000).toISOString(), details: '因 QC-07 瞬时降速，重新计算 14 个高优先级作业' }];
 
@@ -94,8 +104,9 @@ export type AppointmentInput = Pick<GateAppointment, 'containerId' | 'truckNo' |
 export type TaskInput = Pick<YardTask, 'kind' | 'containerId' | 'from' | 'to' | 'priority' | 'scheduledAt' | 'estimatedMinutes'> & { equipmentId?: string };
 
 function recordAudit(action: string, entity: string, entityId: string, details: string) {
-  auditEvents.unshift({ id: `AUD-${Date.now()}`, actor: '中控调度员', action, entity, entityId, at: new Date().toISOString(), details });
+  auditEvents.unshift({ id: `AUD-${Date.now()}-${Math.floor(Math.random() * 1000)}`, actor: '中控调度员', action, entity, entityId, at: new Date().toISOString(), details });
 }
+export { recordAudit };
 
 export function createContainer(input: ContainerInput) {
   const id = input.id.trim().toUpperCase();
